@@ -1,0 +1,20 @@
+{
+  "ProgramSettings": {
+    "PerformTradeOfferAttempts": 2,
+    "SendTradesDelay": 1
+  },
+  "TradeSettings": {
+    "AppID": 730,
+    "ContextID": 2,
+    "Target": 60,
+    "MaxOverfill": 0.5,
+    "CountAcceptorCS2Inventory": true,
+    "CountAcceptorWallet": true,
+    "ItemsWhitelist": null,
+    "ItemsBlacklist": null
+  },
+  "SteamParse": {
+    "URL": "http://65.109.143.76:5000",
+    "Token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXJ2aWNlIjoiZ2VuYSIsImp0aSI6ImEyZjU4ZDMwLTFkODgtNDIxNy04MzFlLTdjOGFlOGIwZTc2NiIsImV4cCI6MTg0NjgzMzA0NSwiaXNzIjoic3RlYW0ifQ.QmClV0bapTS-01Px0OXb2ZPGNj5ktCBp9I8q-b5AC-0"
+  }
+}

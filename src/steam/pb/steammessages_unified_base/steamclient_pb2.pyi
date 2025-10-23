@@ -6,7 +6,6 @@ from google.protobuf import descriptor_pb2 as _descriptor_pb2
 from google.protobuf import message as _message
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 
-
 DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
 DESCRIPTOR: _descriptor.FileDescriptor
 ENUM_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]

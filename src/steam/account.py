@@ -1,17 +1,22 @@
 import asyncio
 import json
+import re
 from time import time
 
 from bs4 import BeautifulSoup
 from httpx import AsyncClient
+from contextlib import suppress
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_fixed,
-    retry_if_not_exception_message,
+    retry_if_exception,
 )
 
-from .enums import SteamURL
+from .enums import (
+    SteamURL,
+    Currency,
+)
 from .exceptions import (
     AuthorizationError,
     SetTokenError,
@@ -28,6 +33,7 @@ from .exceptions import (
     TradeBanError,
     AccountOverflowError,
     TradeOffersLimitError,
+    GetWalletError,
 )
 from .pb.enums_pb2 import k_ESessionPersistence_Persistent
 from .pb.steammessages_auth.steamclient_pb2 import (
@@ -51,6 +57,7 @@ from .schemas import (
     MobileConfirmation,
     SendOfferResponse,
     AcceptOfferResponse,
+    Wallet,
 )
 from .utils import (
     generate_code,
@@ -87,9 +94,11 @@ class SteamAccount:
         self._steam_id64: int | None = None
         self._session_id: str | None = None
         self._trade_token: str | None = None
-        self._timeout: float = 15.0
+        self._currency: Currency | None = None
+        self._timeout: float = 20.0
+        self._user_agent = user_agent
         self._client = AsyncClient(
-            headers={"User-Agent": user_agent},
+            headers={"User-Agent": self._user_agent},
             timeout=self._timeout,
             proxy=proxy,
             follow_redirects=True,
@@ -139,6 +148,26 @@ class SteamAccount:
     @property
     def trade_token(self) -> str | None:
         return self._trade_token
+
+    @property
+    def currency(self) -> Currency | None:
+        return self._currency
+
+    async def reset(self, proxy: str | None = None):
+        with suppress(Exception):
+            await self.close()
+        self._client = AsyncClient(
+            headers={"User-Agent": self._user_agent},
+            timeout=self._timeout,
+            proxy=proxy,
+            follow_redirects=True,
+        )
+        self._logged_in = False
+        self._steam_id64 = None
+        self._session_id = None
+        self._trade_token = None
+        self._currency = None
+        self._device_id = None
 
     async def _poll_auth_session_status(
         self,
@@ -196,10 +225,10 @@ class SteamAccount:
         if not result == 1:
             raise SetTokenError
 
-    async def _getrsakey(self) -> CAuthentication_GetPasswordRSAPublicKey_Response:
-        message = CAuthentication_GetPasswordRSAPublicKey_Request(
-            account_name=self._username
-        )
+    async def _getrsakey(
+        self,
+    ) -> CAuthentication_GetPasswordRSAPublicKey_Response:
+        message = CAuthentication_GetPasswordRSAPublicKey_Request(account_name=self._username)
         response = await self._client.get(
             url=f"{SteamURL.API.value}/IAuthenticationService/GetPasswordRSAPublicKey/v1",
             params={"input_protobuf_encoded": pbmessage_to_request(message)},
@@ -247,7 +276,9 @@ class SteamAccount:
         )
         if not response.status_code == 200:
             raise AuthorizationError
-        return CAuthentication_UpdateAuthSessionWithSteamGuardCode_Response.FromString(response.content)
+        return CAuthentication_UpdateAuthSessionWithSteamGuardCode_Response.FromString(
+            response.content
+        )
 
     async def _confirm_authorization(
         self,
@@ -274,15 +305,17 @@ class SteamAccount:
     @retry(
         stop=stop_after_attempt(2),
         wait=wait_fixed(31),
-        retry=(
-            retry_if_not_exception_message("Already logged in") &
-            retry_if_not_exception_message("Unsupported confirmation type")
+        retry=retry_if_exception(
+            lambda e: not (
+                re.search(r"Already logged in", str(e))
+                or re.search(r"Unsupported confirmation type", str(e))
+            )
         ),
         reraise=True,
     )
     async def login(self) -> LoginResult:
         if self._logged_in:
-            raise AuthorizationError("Unsupported confirmation type3")
+            raise AuthorizationError("Already logged in")
 
         self._session_id = generate_sessionid()
         self._transfer_cookie("sessionid", self._session_id)
@@ -372,11 +405,7 @@ class SteamAccount:
         for asset in inventory.get("rgInventory").values():
             class_id = asset["classid"]
             description = next(
-                (
-                    x
-                    for x in inventory.get("rgDescriptions").values()
-                    if x["classid"] == class_id
-                ),
+                (x for x in inventory.get("rgDescriptions").values() if x["classid"] == class_id),
                 None,
             )
             name = description["name"]
@@ -529,14 +558,12 @@ class SteamAccount:
                     "newversion": True,
                     "version": 2,
                     "me": {
-                        "assets": [x.trade_asset for x in me] if me is not None else [],
+                        "assets": ([x.trade_asset for x in me] if me is not None else []),
                         "currency": [],
                         "ready": False,
                     },
                     "them": {
-                        "assets": (
-                            [x.trade_asset for x in them] if them is not None else []
-                        ),
+                        "assets": ([x.trade_asset for x in them] if them is not None else []),
                         "currency": [],
                         "ready": False,
                     },
@@ -557,11 +584,31 @@ class SteamAccount:
         error = data.get("strError")
         if isinstance(error, str):
             mapping = [
-                ("Trade URL is no longer valid", TradeLinkError, "Trade URL is no longer valid"),
-                ("is not available to trade", ProfileSettingsError, "Account is not available for trade offers"),
-                ("they have a trade ban", TradeBanError, "User has a trade ban"),
-                ("maximum number of items", AccountOverflowError, "Maximum number of items per account"),
-                ("sent too many trade offers", TradeOffersLimitError, "Too many exchange offers have been sent"),
+                (
+                    "Trade URL is no longer valid",
+                    TradeLinkError,
+                    "Trade URL is no longer valid",
+                ),
+                (
+                    "is not available to trade",
+                    ProfileSettingsError,
+                    "Account is not available for trade offers",
+                ),
+                (
+                    "they have a trade ban",
+                    TradeBanError,
+                    "User has a trade ban",
+                ),
+                (
+                    "maximum number of items",
+                    AccountOverflowError,
+                    "Maximum number of items per account",
+                ),
+                (
+                    "sent too many trade offers",
+                    TradeOffersLimitError,
+                    "Too many exchange offers have been sent",
+                ),
             ]
             for needle, exc, message in mapping:
                 if needle in error:
@@ -592,8 +639,27 @@ class SteamAccount:
                 "partner": partner_steam_id64,
                 "captcha": "",
             },
-            headers={
-                "Referer": f"{SteamURL.COMMUNITY.value}/tradeoffer/{trade_offer_id}/"
-            },
+            headers={"Referer": f"{SteamURL.COMMUNITY.value}/tradeoffer/{trade_offer_id}/"},
         )
         return AcceptOfferResponse.model_validate(response.json())
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(10),
+        reraise=True,
+    )
+    async def get_wallet(self) -> Wallet:
+        response = await self._client.get(
+            url=f"{SteamURL.COMMUNITY.value}/market/",
+            cookies={"Steam_Language": "english"},
+        )
+        if not response.status_code == 200:
+            raise GetWalletError
+
+        match = re.search(r"var g_rgWalletInfo = (.*);", response.text)
+        if match is None:
+            raise GetWalletError
+
+        wallet = Wallet.model_validate_json(match.group(1))
+        self._currency = wallet.currency
+        return wallet

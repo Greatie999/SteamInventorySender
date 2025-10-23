@@ -1,5 +1,5 @@
 from enum import (
-    IntEnum, 
+    IntEnum,
     Enum,
 )
 

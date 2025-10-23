@@ -12,7 +12,7 @@ from .pb.steammessages_auth.steamclient_pb2 import (
     EAuthTokenPlatformType,
     k_EAuthTokenPlatformType_MobileApp,
     k_EAuthTokenPlatformType_SteamClient,
-    k_EAuthTokenPlatformType_WebBrowser
+    k_EAuthTokenPlatformType_WebBrowser,
 )
 
 
@@ -48,7 +48,7 @@ def generate_code(shared_secret: str) -> str:
     time_buffer = struct.pack(">Q", timestamp // 30)
     time_hmac = hmac.new(base64.b64decode(shared_secret), time_buffer, digestmod=sha1).digest()
     begin = ord(time_hmac[19:20]) & 0xF
-    full_code = struct.unpack(">I", time_hmac[begin: begin + 4])[0] & 0x7FFFFFFF
+    full_code = struct.unpack(">I", time_hmac[begin : begin + 4])[0] & 0x7FFFFFFF
     chars = "23456789BCDFGHJKMNPQRTVWXY"
     code = []
     for _ in range(5):
@@ -59,7 +59,9 @@ def generate_code(shared_secret: str) -> str:
 
 def get_confirmation_hash(identity_secret: str, tag: str, server_time: int) -> str:
     buffer = struct.pack(">Q", server_time) + tag.encode("ascii")
-    return base64.b64encode(hmac.new(base64.b64decode(identity_secret), buffer, digestmod=sha1).digest()).decode()
+    return base64.b64encode(
+        hmac.new(base64.b64decode(identity_secret), buffer, digestmod=sha1).digest()
+    ).decode()
 
 
 def generate_device_id(steam_id64: int) -> str:

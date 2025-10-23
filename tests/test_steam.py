@@ -1,8 +1,6 @@
 import asyncio
-import os
-from typing import Optional
 
-from steam.account import SteamAccount
+from src.steam import SteamAccount
 
 
 
@@ -40,6 +38,11 @@ async def main():
             print("Fetching inventory page(s)...")
             items = await acc.fetch_inventory(int(app_id), int(context_id))
             print("Inventory items:", len(items))
+
+        print("Fetching wallet...")
+        wallet = await acc.get_wallet()
+        print("Wallet:", wallet)
+        print(acc.currency)
 
 
 if __name__ == "__main__":

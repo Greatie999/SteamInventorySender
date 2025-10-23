@@ -1,14 +1,9 @@
 from .account import (
     SteamAccount,
 )
-from .schemas import (
-    Item,
-    SendOfferResponse,
-    AcceptOfferResponse,
-    MobileConfirmation,
-)
 from .enums import (
     SteamURL,
+    Currency,
 )
 from .exceptions import (
     SteamError,
@@ -29,6 +24,14 @@ from .exceptions import (
     NotFoundMobileConfirmationError,
     InvalidAuthenticatorError,
     InvalidConfirmationPageError,
+    GetWalletError,
+)
+from .schemas import (
+    Item,
+    SendOfferResponse,
+    AcceptOfferResponse,
+    MobileConfirmation,
+    Wallet,
 )
 
 __all__ = [
@@ -37,7 +40,9 @@ __all__ = [
     "SendOfferResponse",
     "AcceptOfferResponse",
     "MobileConfirmation",
+    "Wallet",
     "SteamURL",
+    "Currency",
     "SteamError",
     "AuthorizationError",
     "SetTokenError",
@@ -56,4 +61,5 @@ __all__ = [
     "NotFoundMobileConfirmationError",
     "InvalidAuthenticatorError",
     "InvalidConfirmationPageError",
+    "GetWalletError",
 ]

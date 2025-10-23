@@ -1,6 +1,6 @@
 import asyncio
 from loguru import logger
-from steamparse import (
+from src.steamparse import (
     SteamParseClient,
     Game,
     Currency,
@@ -22,6 +22,8 @@ async def demo():
         # 1) Все курсы
         currencies = await client.list_currency_rates()
         logger.info("currencies: {}", currencies.model_dump())
+        print(currencies)
+        input()
 
         # 2) Курс конкретной валюты
         usd = await client.get_currency_rate(Currency.USD)
