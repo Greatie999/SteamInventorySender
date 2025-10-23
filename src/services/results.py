@@ -3,11 +3,9 @@ from src.models import (
     PricedItem,
 )
 
-from src.services import (
-    ConsoleUI,
-    ProgressTracker,
-    ResultsWriter,
-)
+from src.services.console import ConsoleUI
+from src.services.tracker import ProgressTracker
+from src.services.writer import ResultsWriter
 
 
 class ResultsService:
